@@ -6931,6 +6931,34 @@ Text uses the current drawing color.</value>
   <data name="GrabAndMove_UseAltResize.Description" xml:space="preserve">
     <value>Hold the modifier key and drag with the right mouse button from the nearest edge or corner to resize the window</value>
   </data>
+  <data name="GrabAndMove_AppearanceSettingsGroup.Header" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="GrabAndMove_ShowBorder.Header" xml:space="preserve">
+    <value>Show a border around the window</value>
+  </data>
+  <data name="GrabAndMove_ShowBorder.Description" xml:space="preserve">
+    <value>Draw a border around the window while it is being moved or resized</value>
+  </data>
+  <data name="GrabAndMove_BorderColor.Header" xml:space="preserve">
+    <value>Border color</value>
+  </data>
+  <data name="GrabAndMove_BorderThickness.Header" xml:space="preserve">
+    <value>Border thickness (px)</value>
+    <comment>px = pixels</comment>
+  </data>
+  <data name="GrabAndMove_ShowFill.Header" xml:space="preserve">
+    <value>Shade the window</value>
+  </data>
+  <data name="GrabAndMove_ShowFill.Description" xml:space="preserve">
+    <value>Cover the window with a translucent color while it is being moved or resized</value>
+  </data>
+  <data name="GrabAndMove_FillColor.Header" xml:space="preserve">
+    <value>Shade color</value>
+  </data>
+  <data name="GrabAndMove_FillOpacity.Header" xml:space="preserve">
+    <value>Shade opacity (%)</value>
+  </data>
   <data name="GrabAndMove_ExcludeApps.Header" xml:space="preserve">
     <value>Excluded apps</value>
   </data>

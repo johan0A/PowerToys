@@ -192,6 +192,96 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             }
         }
 
+        public bool ShowBorder
+        {
+            get => _moduleSettings.Properties.ShowBorder.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.ShowBorder.Value != value)
+                {
+                    _moduleSettings.Properties.ShowBorder.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(ShowBorder));
+                }
+            }
+        }
+
+        public string BorderColor
+        {
+            get => _moduleSettings.Properties.BorderColor.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.BorderColor.Value != value)
+                {
+                    _moduleSettings.Properties.BorderColor.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(BorderColor));
+                }
+            }
+        }
+
+        public int BorderThickness
+        {
+            get => _moduleSettings.Properties.BorderThickness.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.BorderThickness.Value != value)
+                {
+                    _moduleSettings.Properties.BorderThickness.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(BorderThickness));
+                }
+            }
+        }
+
+        public bool ShowFill
+        {
+            get => _moduleSettings.Properties.ShowFill.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.ShowFill.Value != value)
+                {
+                    _moduleSettings.Properties.ShowFill.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(ShowFill));
+                }
+            }
+        }
+
+        public string FillColor
+        {
+            get => _moduleSettings.Properties.FillColor.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.FillColor.Value != value)
+                {
+                    _moduleSettings.Properties.FillColor.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(FillColor));
+                }
+            }
+        }
+
+        public int FillOpacity
+        {
+            get => _moduleSettings.Properties.FillOpacity.Value;
+
+            set
+            {
+                if (_moduleSettings.Properties.FillOpacity.Value != value)
+                {
+                    _moduleSettings.Properties.FillOpacity.Value = value;
+                    NotifyModuleSettingsChanged();
+                    OnPropertyChanged(nameof(FillOpacity));
+                }
+            }
+        }
+
         private void NotifyModuleSettingsChanged()
         {
             SndGrabAndMoveSettings outSettings = new(_moduleSettings);

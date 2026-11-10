@@ -61,6 +61,47 @@
                     </tkcontrols:SettingsCard>
                 </controls:SettingsGroup>
 
+                <controls:SettingsGroup x:Uid="GrabAndMove_AppearanceSettingsGroup" IsEnabled="{x:Bind ViewModel.IsEnabled, Mode=OneWay}">
+                    <tkcontrols:SettingsExpander
+                        x:Uid="GrabAndMove_ShowBorder"
+                        HeaderIcon="{ui:FontIcon Glyph=&#xEB3C;}"
+                        IsExpanded="True">
+                        <ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.ShowBorder, Mode=TwoWay}" />
+                        <tkcontrols:SettingsExpander.Items>
+                            <tkcontrols:SettingsCard x:Uid="GrabAndMove_BorderColor" IsEnabled="{x:Bind ViewModel.ShowBorder, Mode=OneWay}">
+                                <controls:ColorPickerButton SelectedColor="{x:Bind Path=ViewModel.BorderColor, Mode=TwoWay}" />
+                            </tkcontrols:SettingsCard>
+                            <tkcontrols:SettingsCard x:Uid="GrabAndMove_BorderThickness" IsEnabled="{x:Bind ViewModel.ShowBorder, Mode=OneWay}">
+                                <Slider
+                                    MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                    LargeChange="5"
+                                    Maximum="30"
+                                    Minimum="1"
+                                    SmallChange="1"
+                                    Value="{x:Bind ViewModel.BorderThickness, Mode=TwoWay}" />
+                            </tkcontrols:SettingsCard>
+                        </tkcontrols:SettingsExpander.Items>
+                    </tkcontrols:SettingsExpander>
+                    <tkcontrols:SettingsExpander
+                        x:Uid="GrabAndMove_ShowFill"
+                        HeaderIcon="{ui:FontIcon Glyph=&#xE790;}"
+                        IsExpanded="True">
+                        <ToggleSwitch x:Uid="ToggleSwitch" IsOn="{x:Bind ViewModel.ShowFill, Mode=TwoWay}" />
+                        <tkcontrols:SettingsExpander.Items>
+                            <tkcontrols:SettingsCard x:Uid="GrabAndMove_FillColor" IsEnabled="{x:Bind ViewModel.ShowFill, Mode=OneWay}">
+                                <controls:ColorPickerButton SelectedColor="{x:Bind Path=ViewModel.FillColor, Mode=TwoWay}" />
+                            </tkcontrols:SettingsCard>
+                            <tkcontrols:SettingsCard x:Uid="GrabAndMove_FillOpacity" IsEnabled="{x:Bind ViewModel.ShowFill, Mode=OneWay}">
+                                <Slider
+                                    MinWidth="{StaticResource SettingActionControlMinWidth}"
+                                    Maximum="100"
+                                    Minimum="0"
+                                    Value="{x:Bind ViewModel.FillOpacity, Mode=TwoWay}" />
+                            </tkcontrols:SettingsCard>
+                        </tkcontrols:SettingsExpander.Items>
+                    </tkcontrols:SettingsExpander>
+                </controls:SettingsGroup>
+
                 <controls:SettingsGroup x:Uid="ExcludedApps" IsEnabled="{x:Bind ViewModel.IsEnabled, Mode=OneWay}">
                     <tkcontrols:SettingsExpander
                         Name="GrabAndMoveExcludeApps"

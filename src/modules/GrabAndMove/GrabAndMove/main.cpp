@@ -12,6 +12,7 @@
 #include "resource.h"
 
 #include <dwmapi.h>
+#include <algorithm>
 #include <array>
 #include <optional>
 
@@ -102,6 +103,14 @@ struct SettingsSnapshot
     bool showGeometry = false;
     bool doNotActivateOnGameMode = true;
     bool useAltResize = true;
+    bool showBorder = true;
+    // Fluent "warning" gold - copy of WinUI SystemFillColorCaution. A Win32 layered
+    // window can't resolve a ThemeResource, so the literal is required here.
+    COLORREF borderColor = RGB(255, 185, 0); // #FFB900
+    int borderThicknessDip = 4; // scaled by the target window DPI
+    bool showFill = true;
+    COLORREF fillColor = RGB(255, 255, 255);
+    int fillOpacityPercent = 40;
     std::shared_ptr<const std::vector<std::wstring>> excludedApps =
         std::make_shared<const std::vector<std::wstring>>();
     std::shared_ptr<const std::vector<std::wstring>> modifierExcludedApps =
@@ -192,17 +201,15 @@ static int g_overlayMarginL = 0, g_overlayMarginT = 0, g_overlayMarginR = 0, g_o
 static int g_overlayCornerRadius = 0; // physical px; 0 = square corners
 static int g_overlayBorderThickness = 4; // physical px
 
-// Fluent "warning" gold - copy of WinUI SystemFillColorCaution
-// (used as a ThemeResource for warnings across the Settings UI). A Win32 layered
-// window can't resolve a ThemeResource, so the literal is required here.
-static constexpr COLORREF OVERLAY_BORDER_COLOR = RGB(255, 185, 0); // #FFB900
-
-// Border thickness in DIPs (scaled by the target window DPI).
-static constexpr int OVERLAY_BORDER_DIP = 4;
-
-// Translucent white wash painted over the visible window during a drag/resize,
-// matching the prior overlay. ~40% opacity (premultiplied white = 0x66666666).
-static constexpr BYTE OVERLAY_FILL_ALPHA = 0x66;
+// Alpha of the translucent wash painted over the visible window during a drag/resize.
+// Never 0, even when the wash is disabled: layered windows let mouse input through fully
+// transparent pixels, and the overlay must stay hit-testable to keep showing the
+// move/resize cursor.
+static BYTE OverlayFillAlpha()
+{
+    const int alpha = g_settings.showFill ? g_settings.fillOpacityPercent * 255 / 100 : 0;
+    return static_cast<BYTE>(std::clamp(alpha, 1, 255));
+}
 
 // Count of non-modifier keys currently held. Used to suppress GrabAndMove when the
 // modifier key is pressed while another key is already down (e.g. Q held, then modifier pressed).
@@ -725,6 +732,19 @@ static std::shared_ptr<const std::vector<std::wstring>> ParseExcludedApps(std::w
     return std::make_shared<const std::vector<std::wstring>>(std::move(apps));
 }
 
+// Accepts "#RRGGBB" and the "#AARRGGBB" written by the Settings color picker (alpha is ignored).
+static COLORREF ColorFromHex(const std::wstring& hex, COLORREF fallback)
+{
+    const wchar_t* digits = hex.c_str() + (hex.starts_with(L'#') ? 1 : 0);
+    wchar_t* end = nullptr;
+    const unsigned long value = wcstoul(digits, &end, 16);
+    if (end == digits || *end != L'\0')
+    {
+        return fallback;
+    }
+    return RGB((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF);
+}
+
 static bool TryLoadSettingsFromFile(const SettingsSnapshot& current, SettingsSnapshot& updated)
 {
     try
@@ -755,6 +775,36 @@ static bool TryLoadSettingsFromFile(const SettingsSnapshot& current, SettingsSna
         if (auto v = values.get_int_value(L"modifierKey"))
         {
             updated.modifierKey = (*v == 1) ? GrabAndMoveModifier::Win : GrabAndMoveModifier::Alt;
+        }
+
+        if (auto v = values.get_bool_value(L"showBorder"))
+        {
+            updated.showBorder = *v;
+        }
+
+        if (auto v = values.get_string_value(L"borderColor"))
+        {
+            updated.borderColor = ColorFromHex(*v, updated.borderColor);
+        }
+
+        if (auto v = values.get_int_value(L"borderThickness"))
+        {
+            updated.borderThicknessDip = std::clamp(*v, 1, 30);
+        }
+
+        if (auto v = values.get_bool_value(L"showFill"))
+        {
+            updated.showFill = *v;
+        }
+
+        if (auto v = values.get_string_value(L"fillColor"))
+        {
+            updated.fillColor = ColorFromHex(*v, updated.fillColor);
+        }
+
+        if (auto v = values.get_int_value(L"fillOpacity"))
+        {
+            updated.fillOpacityPercent = std::clamp(*v, 0, 100);
         }
 
         if (auto v = values.get_string_value(L"excluded_apps"))
@@ -858,7 +908,7 @@ static void PrepareOverlayMetrics(HWND target)
 {
     g_overlayMarginL = g_overlayMarginT = g_overlayMarginR = g_overlayMarginB = 0;
     g_overlayCornerRadius = 0;
-    g_overlayBorderThickness = OVERLAY_BORDER_DIP;
+    g_overlayBorderThickness = 0;
 
     if (!target)
     {
@@ -880,7 +930,9 @@ static void PrepareOverlayMetrics(HWND target)
     }
 
     g_overlayCornerRadius = static_cast<int>(CornerRadiusForWindow(target) * scale);
-    g_overlayBorderThickness = static_cast<int>(OVERLAY_BORDER_DIP * scale);
+    // A zero thickness hides the border in both overlay paths (nothing is stroked and
+    // the segmented border window gets an empty region).
+    g_overlayBorderThickness = g_settings.showBorder ? static_cast<int>(g_settings.borderThicknessDip * scale) : 0;
 }
 
 // Draws an antialiased (optionally rounded) border stroke fully inside `rect` using
@@ -910,7 +962,7 @@ static void DrawOverlayBorder(Gdiplus::Graphics& graphics, const RECT& rect, int
 
     graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
     Gdiplus::Pen pen(
-        Gdiplus::Color(255, GetRValue(OVERLAY_BORDER_COLOR), GetGValue(OVERLAY_BORDER_COLOR), GetBValue(OVERLAY_BORDER_COLOR)),
+        Gdiplus::Color(255, GetRValue(g_settings.borderColor), GetGValue(g_settings.borderColor), GetBValue(g_settings.borderColor)),
         static_cast<Gdiplus::REAL>(thickness));
 
     if (radius <= 0)
@@ -939,8 +991,8 @@ static void DrawOverlayBorder(Gdiplus::Graphics& graphics, const RECT& rect, int
 }
 
 // Renders the overlay surface using per-pixel alpha via UpdateLayeredWindow.
-// A translucent white wash covers the visible window (matching the prior overlay)
-// with a tight warning-gold border on top, both hugging the visible window frame;
+// A translucent wash covers the visible window with a tight border on top (both
+// configurable in Settings), both hugging the visible window frame;
 // the optional geometry label box is painted fully opaque so it remains legible
 // regardless of what is beneath.
 static void RenderOverlayContent(HWND hwnd, int cw, int ch)
@@ -1002,7 +1054,7 @@ static void RenderOverlayContent(HWND hwnd, int cw, int ch)
     PERF_ADD(renderedBytes, static_cast<ULONGLONG>(cw) * ch * sizeof(DWORD));
     PERF_INCREMENT(surfaceAllocationCount);
 
-    // We apply a translucent white rect with a gold border.
+    // We apply a translucent rect with a border.
     // The overlay window spans GetWindowRect, so inset by
     // the invisible-border margins so both hug the visible edge; Always On Top draws
     // its own border just outside that edge, giving a clean double layer.
@@ -1024,7 +1076,7 @@ static void RenderOverlayContent(HWND hwnd, int cw, int ch)
         if (vw > 0 && vh > 0)
         {
             PERF_SCOPE(OverlayFill);
-            Gdiplus::SolidBrush fillBrush(Gdiplus::Color(OVERLAY_FILL_ALPHA, 255, 255, 255));
+            Gdiplus::SolidBrush fillBrush(Gdiplus::Color(OverlayFillAlpha(), GetRValue(g_settings.fillColor), GetGValue(g_settings.fillColor), GetBValue(g_settings.fillColor)));
             if (g_overlayCornerRadius > 0)
             {
                 // Round the wash to match the window corners (and the border).
@@ -1142,17 +1194,8 @@ static LRESULT CALLBACK SolidOverlayWndProc(HWND hwnd, UINT message, WPARAM wPar
         HDC dc = BeginPaint(hwnd, &paint);
         RECT client{};
         GetClientRect(hwnd, &client);
-        HBRUSH brush = nullptr;
-        if (hwnd == g_hResizeBorderOverlay)
-        {
-            SetDCBrushColor(dc, OVERLAY_BORDER_COLOR);
-            brush = static_cast<HBRUSH>(GetStockObject(DC_BRUSH));
-        }
-        else
-        {
-            brush = static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH));
-        }
-        FillRect(dc, &client, brush);
+        SetDCBrushColor(dc, hwnd == g_hResizeBorderOverlay ? g_settings.borderColor : g_settings.fillColor);
+        FillRect(dc, &client, static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
         EndPaint(hwnd, &paint);
         return 0;
     }
@@ -1162,17 +1205,8 @@ static LRESULT CALLBACK SolidOverlayWndProc(HWND hwnd, UINT message, WPARAM wPar
         RECT client{};
         GetClientRect(hwnd, &client);
         HDC dc = reinterpret_cast<HDC>(wParam);
-        HBRUSH brush = nullptr;
-        if (hwnd == g_hResizeBorderOverlay)
-        {
-            SetDCBrushColor(dc, OVERLAY_BORDER_COLOR);
-            brush = static_cast<HBRUSH>(GetStockObject(DC_BRUSH));
-        }
-        else
-        {
-            brush = static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH));
-        }
-        FillRect(dc, &client, brush);
+        SetDCBrushColor(dc, hwnd == g_hResizeBorderOverlay ? g_settings.borderColor : g_settings.fillColor);
+        FillRect(dc, &client, static_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
         return 1;
     }
 
@@ -1198,7 +1232,7 @@ static void EnsureResizeOverlayWindows()
             nullptr);
         if (g_hResizeFillOverlay)
         {
-            SetLayeredWindowAttributes(g_hResizeFillOverlay, 0, OVERLAY_FILL_ALPHA, LWA_ALPHA);
+            SetLayeredWindowAttributes(g_hResizeFillOverlay, 0, OverlayFillAlpha(), LWA_ALPHA);
         }
     }
 
@@ -3128,6 +3162,14 @@ static void ApplyPendingSettings()
     g_settings = std::move(*settings);
     g_excludedCache.clear();
     g_modifierExcludedCache.clear();
+
+    // Repaint the persistent segmented overlay windows with the new appearance.
+    if (g_hResizeFillOverlay)
+    {
+        SetLayeredWindowAttributes(g_hResizeFillOverlay, 0, OverlayFillAlpha(), LWA_ALPHA);
+    }
+    g_resizeFillPainted = false;
+    g_segmentedRegionsValid = false;
 
     if (geometryChanged && g_interaction.phase == InteractionPhase::Active)
     {
